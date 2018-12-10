@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+      <meta charset="utf-8">
+      <title>Migration: Refugees and Asylees</title>
+
+      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.4/dist/leaflet.css"
+        integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA=="
+        crossorigin=""/>
+
+      <script src="https://unpkg.com/leaflet@1.3.4/dist/leaflet.js"
+        integrity="sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXZBadntCNs8kEqAWdrb9O7rxbCaA4lKTIWjDXZxflOcA=="
+        crossorigin=""></script>
+
+      <script src="https://code.jquery.com/jquery-3.3.1.min.js"
+        integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+        crossorigin="anonymous"></script>
+
+        <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"
+        integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU="
+        crossorigin="anonymous"></script>
+      
+      <style type="text/css">
+        html, body { margin: 0; padding: 0; height: 100%; }
+        #map { min-height: 100%; }
+        </style>
+        
+        <script type="text/javascript" src="dataS.js"></script>
+
+      <style>
+          html, body { margin: 0; padding: 0; height: 100%; }
+          #map { min-height: 100%; }
+
+    
+    .legend, .temporal-legend {
+  		    padding: 5px 15px;
+            
+    		font: 15px/13px Arial, Helvetica, sans-serif;
+   		   background: white;
+            background: rgba(255,255,255,0.8);
+   		   box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    		border-radius: 5px;
+	}
+	#legendTitle {
+  	  	text-align: center;
+   	 	margin-bottom: 9px;
+        margin-top: 2px;
+   		font-variant: medium;
+	}
+	.symbolsContainer {
+    		float:left;
+		margin-left: 40px;
+	}
+	.legendCircle {
+     	border-radius:50%; 
+     	border: 1px solid 129,15,124; 
+     	background: rgba(136,86,167,.6);
+	 	display: inline-block;
+	}
+	.legendValue {
+    		position: absolute;
+    		right: 8px;
+	}
+        .title {
+        padding: 6px 8px;
+        font: 14px/16px Cambria, Helvetica, sans-serif;
+        background: white;
+        background: rgba(255,255,255,0.8);
+        box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        border-radius: 5px;
+            
+          }
+            .info {
+        padding: 6px 8px;
+        font: 15px/20px Arial, Helvetica, sans-serif;
+        background: white;
+        background: rgba(255,255,255,0.8);
+        box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        border-radius: 5px;
+    }
+        .info h4 {
+        margin: 0 0 2px;
+        color: black;
+}
+      </style>
+      
+  </head>
+
+  <body>
+      <div id="map"></div>
+      
+
+      <script type="text/javascript">
+          
+          var map = L.map('map', {
+                center: [37.4767018,-0.7531147],
+                zoom: 2
+            });
+
+          var canvas = L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
+            attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery &copy; <a href="http://mapbox.com">Mapbox</a>',
+            id: 'mapbox.light',
+            maxzoom: 4,
+            minzoom: 4,
+            accessToken: 'pk.eyJ1IjoibnJhbzQiLCJhIjoiY2pseG1qZDd1MGEzbTNrcWRkdnp6cjR2NyJ9.jCgMDfT3qtoxUfAu6ph1Ag'
+          }).addTo(map);
+
+        $.getJSON("map.geojson")
+        .done(function(data) {
+            var info = processData(data);
+            createPropSymbols(info.timestamps, data);
+            createSliderUI(info.timestamps);
+            createLegend(info.min,info.max);
+             }); 
+          
+          
+          
+                        /////////ASYLUM HOVER\\\\\\\\\\\\
+          function getColor(value) {
+        return value > 577918? '#016c59':
+                value> 351459? '#1c9099':
+                value > 89775? '#67a9cf':
+                value > 23062? '#bdc9e1':
+                             '#eff3ff';
+}
+        function style(feature){
+        return {
+            fillColor: getColor(feature.properties.AsyleesDestination), 
+            weight: 1,
+            opacity: 1,
+            color: 'black',
+            fillOpacity: 1
+            
+        };
+        }
+        
+        function highlightFeature(e) {
+        var layer = e.target;
+        info.update(layer.feature.properties);
+
+            layer.setStyle({
+                weight: 3,
+                color: '#0868ac',
+                dashArray: '',
+                fillOpacity: 0.7
+            });
+
+            if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+                layer.bringToBack();
+            }
+        }
+          
+          var States =  L.geoJson(dataS,{style:style,onEachFeature: onEachFeature}).addTo(map); 
+          
+          var info = L.control();
+
+        info.onAdd = function (map) {
+            this._div = L.DomUtil.create('div', 'info'); // create a div with a class "info"
+            this.update();
+            return this._div;
+            
+        };
+
+        // method that we will use to update the control based on feature properties passed
+        info.update = function (props) {
+            this._div.innerHTML = '<h4>Total Number of Asylee Applications, 2015</h4>' +  (props ?
+                '<b>' + props.NAME + '</b>' + ":"+'<i>'+ props.AsyleesDestination+ '</i>' 
+                : 'Hover Over Country');
+        };
+
+        info.addTo(map);
+        
+        function resetHighlight(e) {
+        States.resetStyle(e.target);
+        info.update();
+}   
+        function onEachFeature(feature, layer) {
+        layer.on({
+        mouseover: highlightFeature, // Do what defined by the highlightFeature function on mouseover
+        mouseout: resetHighlight,    // Do what defined by the resetHighlight function on mouseout
+    });
+}
+          
+          
+                            ////Process Refugee Data/////////
+          function processData(data) {
+              // First, initialize the variables to hold the timestamps and min/max population values
+              var timestamps = [];  // square brackets to define an array of data
+                                    // because there are multiple timestamps
+              var	min = Infinity; // for the min, begin with the largest possible value - infinity
+              var	max = -Infinity;// for the max, begin with the smallest possible value - negative infinity
+
+              // Go through each row/feature of the data table
+              // Note data is the variable name in the function definition - processData(data)
+              for (var feature in data.features) {
+                  var properties = data.features[feature].properties;
+
+                  // At each row, go through the columns/attributes to get the values
+                  for (var attribute in properties) {
+                      if ( attribute != 'id' &&
+                           attribute != 'name' &&
+                           attribute != 'latitude' &&
+                           attribute != 'longitude' )   // != means NOT EQUAL TO
+                                                  // These three columns are NOT recorded
+                                                  // Modify this part when mapping your own data
+                      {
+                          if ( $.inArray(attribute,timestamps) ===  -1) { // JQuery in.Array() method searches for a specified value within an array and return its index (or -1 if not found)
+                                                            // here, the new timestamp is only added when it is not already in the array
+                                                            // triple equals === compares both type and value
+
+                              timestamps.push(attribute);  // The JS push() method adds new items to the end of an array
+                                                           // and returns the new length of the array
+                          }
+                          if (properties[attribute] < min) {
+                              min = properties[attribute]; // record/update the current smaller values as the min
+                          }
+                          if (properties[attribute] > max) {
+                              max = properties[attribute]; // record/update the current larger values as the max
+                          }
+                      }
+                  }
+              }
+              return {
+                  timestamps : timestamps,
+                  min : min,
+                  max : max
+              }
+            }
+
+          // The function to draw the proportional symbols
+            function createPropSymbols(timestamps, data) {
+
+              states = L.geoJson(data, {
+
+                  // By default, Leaflet draws geojson points as simple markers
+                  // To alter this, the pointToLayer function needs to be used
+                  pointToLayer: function(feature, latlng) {
+                      return L.circleMarker(latlng, { // we use circle marker for the points
+                          fillColor: "#8856a7",  // fill color of the circles
+                          color: '#810f7c',      // border color of the circles
+                          weight: 2,             // circle line weight in pixels
+                          fillOpacity: 0.5       // fill opacity (0-1)
+                      }).on({
+                         mouseover: function(e) {
+                            this.openPopup();
+                            this.setStyle({fillColor: '#dd1c77'});  // fill color changes to this when mouseover
+                        },
+                        mouseout: function(e) {
+                            this.closePopup();
+                            this.setStyle({fillColor: '#8856a7'});  // fill turns to this on mouseout
+                        }
+                    });
+                  }
+              }).addTo(map);
+
+              updatePropSymbols(timestamps[0]); // this function is defined below
+                                              // When loaded, the map will first show proportional symbols with the first timestamp's data
+            }
+
+            // The function to update/resize each circle marker according to a value in the time series
+            function updatePropSymbols(timestamp) {
+
+              states.eachLayer(function(layer) {  // eachLayer() is an Leaflet function to iterate over the layers/points of the map
+
+                  var props = layer.feature.properties;   // attributes
+                  var radius = calcPropRadius(props[timestamp]); // circle radius, calculation function defined below
+
+                  // pop-up information (when mouseover) for each city is also defined here
+                 var popupContent = "<b>" + props.name + "</b> <br>" + "<i><b>" +' Refugee Population: ' + "</b></i>"+ String(props[timestamp]);
+
+                  layer.setRadius(radius);  // Leaflet method for setting the radius of a circle
+                  layer.bindPopup(popupContent, { offset: new L.Point(0,-radius) }); // bind the popup content, with an offset
+              });
+            }
+
+            // calculate the radius of the proportional symbols based on area
+            function calcPropRadius(attributeValue) {
+
+              var scaleFactor = 0.002;   // the scale factor is used to scale the values; the units of the radius are in meters
+                                         // you may determine the scale factor accordingly based on the range of the values and the mapping scale
+              var area = attributeValue * scaleFactor;
+
+              return Math.sqrt(area/Math.PI);  // the function return the radius of the circle to be used in the updatePropSymbols()
+            }
+          
+                            ///////////SLIDER\\\\\\\\\\\\\\
+          
+        function createSliderUI(timestamps) {
+              var sliderControl = L.control({ position: 'topright'} ); // position of the slider
+                                // Another use of L.control :)
+              sliderControl.onAdd = function(map) {
+                //initialize a range slider with mousedown control
+                  var slider = L.DomUtil.create("input", "range-slider");
+                  L.DomEvent.addListener(slider, 'mousedown', function(e) {
+                      L.DomEvent.stopPropagation(e);
+                  });
+
+                // Define the labels of the time slider as an array of strings
+                // Modify this for your data
+                var labels = ["2000", "2010","2015","2017"];
+
+                $(slider)
+                    .attr({
+                      'type':'range',
+                      'max': timestamps[timestamps.length-1],
+                      'min':timestamps[0],
+                      'step': 1, // Change this to match the numeric interval between adjacent timestamps
+                      'value': String(timestamps[0])
+                    })
+                    .on('input change', function() {
+                        updatePropSymbols($(this).val().toString()); // automatic update the map for the timestamp
+                        var i = $.inArray(this.value,timestamps);
+                        $(".temporal-legend").text(labels[i]); // automatic update the label for the timestamp
+                    });
+                return slider;
+              }
+              sliderControl.addTo(map);
+              createTimeLabel("2000"); //The starting timestamp label
+              }
+             
+
+
+              // Add labels to the time slider when the map first loaded
+              function createTimeLabel(startTimestamp) {
+                var temporalLegend = L.control({position: 'topright' }); // same position as the slider
+                                   // One more use of L.control !!
+                temporalLegend.onAdd = function(map) {
+                  var output = L.DomUtil.create("output", "temporal-legend");
+                  $(output).text(startTimestamp);
+                  return output;
+                }
+                temporalLegend.addTo(map);
+              }
+          
+        function createLegend(min, max) {
+		 
+		if (min < 100) {	
+			min = 1000; 
+		}
+
+		function roundNumber(inNumber) {
+
+				return (Math.round(inNumber/10) * 10);  
+		}
+
+		var legend = L.control( { position: 'bottomright' } );
+
+		legend.onAdd = function(map) {
+
+		var legendContainer = L.DomUtil.create("div", "legend");  
+		var symbolsContainer = L.DomUtil.create("div",                      "symbolsContainer");
+		var classes = [roundNumber(min), roundNumber((max-min)/2), roundNumber(max)]; 
+		var legendCircle;  
+		var lastRadius = 0;
+		var currentRadius;
+		var margin;
+
+		L.DomEvent.addListener(legendContainer, 'mousedown', function(e) { 
+			L.DomEvent.stopPropagation(e); 
+		});  
+
+		$(legendContainer).append("<h4 id='legendTitle'> Refugee Total Count </h4>");
+		
+		for (var i = 0; i <= classes.length-1; i++) {  
+
+			legendCircle = L.DomUtil.create("div",                         "legendCircle");  
+			
+			currentRadius = calcPropRadius(classes[i]);
+			
+			margin = -currentRadius - lastRadius - 2;
+
+			$(legendCircle).attr("style", "width: " +                      currentRadius*2 + 
+				"px; height: " + currentRadius*2 + 
+				"px; margin-left: " + margin + "px" );			
+			$(legendCircle).append("<span                                  class='legendValue'>"+classes[i]+"</span>");
+
+			$(symbolsContainer).append(legendCircle);
+
+			lastRadius = currentRadius;
+
+	}
+
+		$(legendContainer).append(symbolsContainer); 
+
+		return legendContainer; 
+
+		};
+
+		legend.addTo(map);  
+
+	} // end createLegend();
+          
+        
+
+
+          
+                                ///////TITLE/////
+          var title = L.control({position: 'bottomleft'}); // position of the title
+
+            title.onAdd = function (map) {
+            this._div = L.DomUtil.create('div', 'title'); // create a div with a class "title"
+            this._div.innerHTML = "<h3> Global Representation of Refugees and Asylum Seekers</h3>"+ "<p>• Yearly Time Series of the Top 25 Refugee Populations by Country of Destination (2000-2017)</p>"+"<p>• Asylum Seekers (2015)";  // Title text, may use html to customize
+            return this._div;
+            };
+
+            title.addTo(map);     
+          
+    
+    
+      </script>
+
+  </body>
+</html>
